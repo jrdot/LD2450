@@ -1,13 +1,13 @@
 # HLK-LD2450 테스트
 
-ESP32-S3 Super Mini 개발보드와 Arduino framework 사용함. PlatformIO board는 `esp32-s3-devkitc-1` 기반, flash 4MB로 설정함.
-USB-C 포트가 native USB(CDC)로 동작하므로 `ARDUINO_USB_CDC_ON_BOOT=1` 사용함.
+ESP32-C3 Super Mini 개발보드와 Arduino framework 사용함. PlatformIO board는 `esp32-c3-devkitm-1` 기반, flash 4MB로 설정함.
+USB-C 포트가 native USB(CDC)로 동작하므로 `ARDUINO_USB_MODE=1`, `ARDUINO_USB_CDC_ON_BOOT=1` 사용함.
 
 ## 배선
 
 전원 끈 상태에서 모듈에 표시된 핀 이름 기준으로 연결함.
 
-| HLK-LD2450 | ESP32-S3 Super Mini |
+| HLK-LD2450 | ESP32-C3 Super Mini |
 | --- | --- |
 | 5V | 5V 전원 |
 | GND | GND |
@@ -38,7 +38,7 @@ frames가 증가하고 타깃이 없으면 센서 앞에서 움직이며 확인�
 
 ## 근거 문서
 
-- [PlatformIO Espressif ESP32-S3-DevKitC-1](https://docs.platformio.org/en/stable/boards/espressif32/esp32-s3-devkitc-1.html) (ESP32-S3 Super Mini는 PlatformIO 전용 board 정의가 없어 이 generic board를 flash 4MB로 재설정하여 사용함)
+- [PlatformIO Espressif ESP32-C3-DevKitM-1](https://docs.platformio.org/en/stable/boards/espressif32/esp32-c3-devkitm-1.html) (ESP32-C3 Super Mini는 PlatformIO 전용 board 정의가 없어 이 generic board를 사용함)
 - [Hi-Link LD2450 설명서](https://h.hlktech.com/download/HLK-LD2450-24G/1/HLK%20LD2450%201T2R%E8%BF%90%E5%8A%A8%E7%9B%AE%E6%A0%87%E6%A3%80%E6%B5%8B%E8%BF%BD%E8%B8%AA%E6%A8%A1%E7%BB%84%E8%AF%B4%E6%98%8E%E4%B9%A6%20V1.02%20.pdf)
 
 제조사 설명서의 30-byte 프레임 구조와 최상위 비트 1=양수 규칙 적용함.
@@ -75,7 +75,7 @@ AP와 웹UI는 공개 모드이며 접속자는 설정 변경·업데이트 가�
 
 ## 펌웨어 업데이트
 
-초기 펌웨어는 USB로 업로드해야 함. 이후 웹UI에서 `.pio/build/esp32-s3-super-mini/firmware.bin` 설치 가능함.
+초기 펌웨어는 USB로 업로드해야 함. 이후 웹UI에서 `.pio/build/esp32-c3-super-mini/firmware.bin` 설치 가능함.
 성공하면 재부팅하고 NVS 설정 유지함. 이 프로젝트의 기본 partition table은 OTA 슬롯 2개 제공함.
 
 자동업데이트는 기본 비활성화됨. 시스템 화면에서 다음 설정 입력 후 활성화함.
