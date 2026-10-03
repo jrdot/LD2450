@@ -4,10 +4,10 @@
 #include "sensor_web.h"
 
 #ifndef LD2450_RX_PIN
-#define LD2450_RX_PIN 16
+#define LD2450_RX_PIN 4
 #endif
 #ifndef LD2450_TX_PIN
-#define LD2450_TX_PIN 17
+#define LD2450_TX_PIN 5
 #endif
 
 namespace {
