@@ -1,19 +1,20 @@
 # HLK-LD2450 테스트
 
-ESP32-WROOM-32U 개발보드와 Arduino framework 사용함. PlatformIO board는 `esp32dev`로 설정함.
+ESP32-S3 Super Mini 개발보드와 Arduino framework 사용함. PlatformIO board는 `esp32-s3-devkitc-1` 기반, flash 4MB로 설정함.
+USB-C 포트가 native USB(CDC)로 동작하므로 `ARDUINO_USB_CDC_ON_BOOT=1` 사용함.
 
 ## 배선
 
 전원 끈 상태에서 모듈에 표시된 핀 이름 기준으로 연결함.
 
-| HLK-LD2450 | ESP32 개발보드 |
+| HLK-LD2450 | ESP32-S3 Super Mini |
 | --- | --- |
 | 5V | 5V 전원 |
 | GND | GND |
-| TX | GPIO16 (ESP32 RX) |
-| RX | GPIO17 (ESP32 TX) |
+| TX | GPIO4 (ESP32 RX) |
+| RX | GPIO5 (ESP32 TX) |
 
-LD2450은 5V 전원과 200mA 초과 공급 능력 필요함. ESP32와 GND 공유함. GPIO 변경 시 `platformio.ini`의 `LD2450_RX_PIN`, `LD2450_TX_PIN` 수정함.
+LD2450은 5V 전원과 200mA 초과 공급 능력 필요함. ESP32와 GND 공유함. GPIO4/5는 보드에 표준으로 노출된 핀 기준 임의 선택한 값이므로 실제 보드 실크스크린과 대조 후 연결 필요함. GPIO 변경 시 `platformio.ini`의 `LD2450_RX_PIN`, `LD2450_TX_PIN` 수정함.
 
 ## 실행
 
@@ -21,10 +22,12 @@ LD2450은 5V 전원과 200mA 초과 공급 능력 필요함. ESP32와 GND 공유
 pio run
 pio device list
 pio run -t upload --upload-port COM번호
+pio run -t uploadfs --upload-port COM번호
 pio device monitor --port COM번호 --baud 115200
 ```
 
 업로드 명령은 사용자 승인 후 실행함. 실제 COM 포트로 `COM번호` 대체함.
+`uploadfs`는 `data/mapview.png`를 LittleFS에 기록함. 평면도 이미지 교체·최초 설치 시 1회 실행 필요하며, 이후 일반 펌웨어 업데이트(OTA·웹UI 업로드)로는 덮어쓰이지 않음.
 
 센서 UART는 256000 baud, 8N1 사용함. PC Serial Monitor는 115200 baud 사용함.
 0.5초마다 수신 byte·frame 수와 최대 3개 타깃의 x/y(mm), 속도(cm/s), 거리 분해능(mm) 출력함.
@@ -35,7 +38,7 @@ frames가 증가하고 타깃이 없으면 센서 앞에서 움직이며 확인�
 
 ## 근거 문서
 
-- [PlatformIO ESP32 Dev Module](https://docs.platformio.org/en/stable/boards/espressif32/esp32dev.html)
+- [PlatformIO Espressif ESP32-S3-DevKitC-1](https://docs.platformio.org/en/stable/boards/espressif32/esp32-s3-devkitc-1.html) (ESP32-S3 Super Mini는 PlatformIO 전용 board 정의가 없어 이 generic board를 flash 4MB로 재설정하여 사용함)
 - [Hi-Link LD2450 설명서](https://h.hlktech.com/download/HLK-LD2450-24G/1/HLK%20LD2450%201T2R%E8%BF%90%E5%8A%A8%E7%9B%AE%E6%A0%87%E6%A3%80%E6%B5%8B%E8%BF%BD%E8%B8%AA%E6%A8%A1%E7%BB%84%E8%AF%B4%E6%98%8E%E4%B9%A6%20V1.02%20.pdf)
 
 제조사 설명서의 30-byte 프레임 구조와 최상위 비트 1=양수 규칙 적용함.
@@ -50,6 +53,11 @@ Wi-Fi 연결 성공 시 Serial Monitor에 출력된 IP로 접속함.
 장치 이름, 좌표 평활화 α, 표시 거리, 수신 만료 시간은 NVS에 저장됨.
 타깃 데이터 표는 원래 수신 좌표, 위치 화면은 평활화된 좌표 사용함.
 센서 내부 설정은 변경하지 않으며 RF 파형은 제공하지 않음.
+
+"지도" 탭에서 `data/mapview.png` 평면도 위에 타깃 위치를 겹쳐 표시함. LittleFS(`uploadfs`)로 이미지 제공함.
+보정값(센서 위치 픽셀, 방향, mm/px 축척)은 웹UI에서 설정하고 NVS에 저장함. 기본값은 미보정 상태이며 위치가 정확하지 않을 수 있음.
+보정 절차: "센서 위치 지정"으로 평면도에서 센서 설치 지점 클릭 → 방향(도) 입력 → "축척 측정"으로 실제 거리를 아는 두 지점 클릭 후 거리(mm) 입력해 계산 → "보정값 저장".
+방향은 센서 정면이 이미지에서 가리키는 각도(시계방향, 0=이미지 위쪽)임.
 
 시스템에서 Wi-Fi 설정, `.bin` 펌웨어 설치, 자동업데이트 설정 및 재시작 가능함.
 Wi-Fi 비밀번호는 API 응답에 포함하지 않음. 비밀번호 입력을 비워두면 기존 비밀번호 유지함.
@@ -67,7 +75,7 @@ AP와 웹UI는 공개 모드이며 접속자는 설정 변경·업데이트 가�
 
 ## 펌웨어 업데이트
 
-초기 펌웨어는 USB로 업로드해야 함. 이후 웹UI에서 `.pio/build/esp32dev/firmware.bin` 설치 가능함.
+초기 펌웨어는 USB로 업로드해야 함. 이후 웹UI에서 `.pio/build/esp32-s3-super-mini/firmware.bin` 설치 가능함.
 성공하면 재부팅하고 NVS 설정 유지함. 이 프로젝트의 기본 partition table은 OTA 슬롯 2개 제공함.
 
 자동업데이트는 기본 비활성화됨. 시스템 화면에서 다음 설정 입력 후 활성화함.
@@ -82,5 +90,5 @@ AP와 웹UI는 공개 모드이며 접속자는 설정 변경·업데이트 가�
 버전 텍스트와 binary를 같은 릴리스로 게시해야 함. 배포 서버 구성·게시 작업은 이 프로젝트에 포함하지 않음.
 다운로드 및 OTA 쓰기 중에는 웹 응답과 센서 처리가 일시 정지될 수 있음.
 
-구현은 Arduino ESP32 내장 WiFi, WebServer, Preferences, Update, HTTPUpdate 사용함. 외부 라이브러리 추가하지 않았음.
+구현은 Arduino ESP32 내장 WiFi, WebServer, Preferences, Update, HTTPUpdate, LittleFS 사용함. 외부 라이브러리 추가하지 않았음.
 참고: [Espressif Wi-Fi API](https://docs.espressif.com/projects/arduino-esp32/en/latest/api/wifi.html), [OTA Web Update](https://docs.espressif.com/projects/arduino-esp32/en/latest/ota_web_update.html).

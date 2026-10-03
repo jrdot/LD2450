@@ -8,8 +8,13 @@
 #include <HTTPUpdate.h>
 #include <WiFiClientSecure.h>
 #include <Update.h>
+#include <LittleFS.h>
 #include <time.h>
 #include <cmath>
+
+// mapview.png 실제 크기(px). data/mapview.png 교체 시 함께 갱신 필요함.
+constexpr uint16_t mapImageWidth = 983;
+constexpr uint16_t mapImageHeight = 739;
 
 #ifndef DEFAULT_WIFI_SSID
 #define DEFAULT_WIFI_SSID "SOL_2"
@@ -35,6 +40,9 @@ String ssid, password, deviceName, versionUrl, binaryUrl, ca;
 String updateStatus = "자동업데이트 비활성화됨";
 float alpha = 0.35f;
 uint32_t rangeMm = 6000, staleMs = 2000, intervalMinutes = 60;
+bool mapReady = false;
+float mapOriginX = mapImageWidth / 2.0f, mapOriginY = mapImageHeight - 20.0f;
+float mapHeadingDeg = 0.0f, mapScaleMmPerPx = 10.0f;
 bool automatic = false, apMode = false, connecting = false;
 bool webActive = false;
 IPAddress webAddress;
@@ -232,8 +240,25 @@ void settings() {
     json += ",\"alpha\":" + String(alpha, 2) + ",\"range\":" + String(rangeMm) + ",\"stale\":" + String(staleMs) + '}';
     json += ",\"auto\":{\"enabled\":" + String(automatic ? "true" : "false");
     json += ",\"versionUrl\":" + quote(versionUrl) + ",\"binaryUrl\":" + quote(binaryUrl);
-    json += ",\"interval\":" + String(intervalMinutes) + ",\"ca\":" + quote(ca) + "}}";
+    json += ",\"interval\":" + String(intervalMinutes) + ",\"ca\":" + quote(ca) + "}";
+    json += ",\"map\":{\"ready\":" + String(mapReady ? "true" : "false");
+    json += ",\"x\":" + String(mapOriginX, 1) + ",\"y\":" + String(mapOriginY, 1);
+    json += ",\"heading\":" + String(mapHeadingDeg, 1) + ",\"scale\":" + String(mapScaleMmPerPx, 3);
+    json += ",\"width\":" + String(mapImageWidth) + ",\"height\":" + String(mapImageHeight) + "}}";
     server.send(200, "application/json; charset=utf-8", json);
+}
+
+void saveMap() {
+    double x, y, heading, scale;
+    if (!validNumber(server.arg("x"), 0, mapImageWidth, x) ||
+        !validNumber(server.arg("y"), 0, mapImageHeight, y) ||
+        !validNumber(server.arg("heading"), 0, 359.9, heading) ||
+        !validNumber(server.arg("scale"), 0.5, 500, scale)) return reply(400, "지도 보정값 범위 확인 필요함");
+    mapOriginX = x; mapOriginY = y; mapHeadingDeg = heading; mapScaleMmPerPx = scale; mapReady = true;
+    prefs.putFloat("mapX", mapOriginX); prefs.putFloat("mapY", mapOriginY);
+    prefs.putFloat("mapHead", mapHeadingDeg); prefs.putFloat("mapScale", mapScaleMmPerPx);
+    prefs.putBool("mapReady", mapReady);
+    reply(200, "지도 보정값 저장됨");
 }
 
 void saveDevice() {
@@ -363,7 +388,11 @@ void webBegin() {
     rangeMm = prefs.getUInt("range", 6000); staleMs = prefs.getUInt("stale", 2000);
     versionUrl = prefs.getString("vurl", ""); binaryUrl = prefs.getString("burl", ""); ca = prefs.getString("ca", "");
     automatic = prefs.getBool("auto", false); intervalMinutes = prefs.getUInt("interval", 60);
+    mapReady = prefs.getBool("mapReady", false);
+    mapOriginX = prefs.getFloat("mapX", mapOriginX); mapOriginY = prefs.getFloat("mapY", mapOriginY);
+    mapHeadingDeg = prefs.getFloat("mapHead", mapHeadingDeg); mapScaleMmPerPx = prefs.getFloat("mapScale", mapScaleMmPerPx);
     if (automatic) updateStatus = "자동 버전 확인 대기 중임";
+    if (!LittleFS.begin(true)) serialLog::print(cli::fg::RED, "ERROR", "LittleFS 마운트 실패함: 지도 이미지 제공 불가함");
     WiFi.persistent(false);
     startNetwork();
     server.on("/", HTTP_GET, [] {
@@ -373,6 +402,14 @@ void webBegin() {
     });
     server.on("/api/status", HTTP_GET, status);
     server.on("/api/settings", HTTP_GET, settings);
+    server.on("/mapview.png", HTTP_GET, [] {
+        File file = LittleFS.open("/mapview.png", "r");
+        if (!file) return reply(404, "지도 이미지 없음: data/mapview.png 업로드 필요함");
+        server.sendHeader("Cache-Control", "max-age=86400");
+        server.streamFile(file, "image/png");
+        file.close();
+    });
+    server.on("/api/map", HTTP_POST, saveMap);
     server.on("/api/device", HTTP_POST, saveDevice);
     server.on("/api/wifi", HTTP_POST, saveWifi);
     server.on("/api/auto", HTTP_POST, saveAuto);
